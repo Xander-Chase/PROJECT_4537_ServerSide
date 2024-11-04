@@ -32,7 +32,7 @@ export const userRoutes = {
         }
     },
 
-    async updateUser(_id, user, options)
+    async updateUser(_id, options)
     {
         try
         {
