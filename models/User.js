@@ -6,7 +6,9 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, default: 'user' },
-  api_consumptions: { type: Number, default: 20 },
+  api_consumptions: { type: Number, default: 20, min: 0 },
+  stories: {type: Array, default: []},
+  createdAt: { type: Date, default: Date.now }
 });
 
 // Hash password before saving the user
