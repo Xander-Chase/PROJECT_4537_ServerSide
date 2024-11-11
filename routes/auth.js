@@ -2,14 +2,19 @@ import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+const signingKey = "Paris Berlin Cairo Sydney Tokyo Beijing Rome London Athens";
+
 // Place this in .env
-const SECRET_KEY = "secret";
+const CREDENTIALS = {
+  audience: "http://storyGeneratorCOMP4537.com",
+  issuer: "http://storyGeneratorCOMP4537.com",
+  expiresIn: '1h'
+}
 
 export const authRoutes = {
     async isTokenValid(token) {
         try {
-    
-          jwt.verify(token, SECRET_KEY);
+          jwt.verify(token, signingKey, CREDENTIALS);
           return { success: true, valid: true };
         } catch (error) {
           console.error('Token validation error:', error);
@@ -21,7 +26,7 @@ export const authRoutes = {
     {
         try
         {
-          const decoded = jwt.verify(token, SECRET_KEY);
+          const decoded = jwt.verify(token, signingKey, CREDENTIALS);
           return { success: true, decoded: decoded };
         } catch (error) {
           console.error('Token decoding error:', error);
@@ -29,12 +34,24 @@ export const authRoutes = {
         }
     },
     
+    async encodeToken(payload)
+    {
+        try
+        {
+          const token = jwt.sign(payload, signingKey, CREDENTIALS);
+
+          return token;
+        } catch (error) {
+          console.error('Token encoding error:', error);
+          return { success: false, error: 'An error occurred while encoding token.' };
+        }
+    },
+
     async login(email, password) {
         try {
           console.log('Login attempt:', { email, password });
     
           const user = await User.findOne({ email: email.trim().toLowerCase() }).exec();
-          console.log('User found:', user);
     
           if (!user) {
             return { success: false, error: 'Invalid credentials. User not found.' };
@@ -42,18 +59,16 @@ export const authRoutes = {
     
           // Compare the input password with the stored hash
           let isMatch = await bcrypt.compare(password, user.password);
-          console.log('Input Password:', password);
-          console.log('Stored Hashed Password:', user.password);
           console.log('Password comparison result:', isMatch);
     
           if (!isMatch) {
             return { success: false, error: 'Invalid credentials. Incorrect password.' };
           }
     
-          const token = jwt.sign({ id: user._id, email: user.email }, SECRET_KEY, { expiresIn: '1h' });
+          const token = await this.encodeToken({ id: user._id, email: user.email, role: user.role });
     
           console.log('Login successful:', user.email);
-          return { success: true, token };
+          return { success: true, token: token}; // dont do this
         } catch (error) {
           console.error('Login error:', error);
           return { success: false, error: 'An error occurred during login.' };

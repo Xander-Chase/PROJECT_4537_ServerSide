@@ -5,9 +5,27 @@ import connectDB from './db.js'; // MongoDB connection
 import dotenv from 'dotenv'; // Environment variables
 import { authRoutes } from './routes/auth.js'; // Ensure correct import
 import { adminRoutes, userRoutes } from './routes/admin.js'; // Ensure correct import
+import {AuthMiddleware} from "./middleware/auth.js";
 
+
+// Messages
+// Move to lang/en.js
+const MESSAGES = {
+  logger: {
+    info: "INFO:",
+    warn: "WARN:",
+    error: "ERROR:"
+  },
+  receivedPrompt: "Received Prompt:",
+  loadingModel: "Loading model...",
+  modelLoaded: "Model loaded successfully",
+}
 dotenv.config(); // Load environment variables
 
+/**
+ * Server class
+ * Runs the program
+ */
 class Server {
   constructor(port) {
     this.port = port;
@@ -17,32 +35,42 @@ class Server {
     this.loadModel(); // Load the text generation model
   }
 
+  /**
+   * Load the text generation model
+   */
   async loadModel() {
     try {
-      console.log('Loading model...');
+
+      console.log(`${MESSAGES.logger.info} ${MESSAGES.loadingModel}`);
       this.generator = await pipeline('text-generation', 'Xenova/distilgpt2');
-      console.log('Model loaded.');
+      console.log(`${MESSAGES.logger.info} ${MESSAGES.modelLoaded}`);
+
     } catch (error) {
       console.error('Error loading model:', error);
       process.exit(1);
     }
   }
 
+  /**
+   * Handles incoming requests
+   * @param {*} req - request
+   * @param {*} res - response
+   * @returns response
+   */
   async handleRequest(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    const YOUR_ORIGIN = "http://127.0.0.1:3000" // Change this to your localhost origin
+    res.setHeader('Access-Control-Allow-Origin', YOUR_ORIGIN); // Allow CORs on specific origin
 
+    res.setHeader('Access-Control-Allow-Credentials', "true"); // Allow cookies
+    res.setHeader('Access-Control-Allow-Headers', "Content-Type");
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    
     const parsedUrl = url.parse(req.url, true);
     const method = req.method;
 
     if (method === 'OPTIONS') {
       // For preflight requests, respond with 204 No Content and include CORS headers
-      res.writeHead(204, {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      });
+      res.writeHead(204);
       res.end();
       return;
     }
@@ -50,32 +78,38 @@ class Server {
     const isPostMethod = method === 'POST';
 
     switch (parsedUrl.pathname) {
-      case '/api/generate-story':
-        if (isPostMethod) await this.handleGenerateStory(req, res);
-        break;
-
+      // Auth
       case '/api/auth/login':
-        if (isPostMethod) await this.handleLogin(req, res);
+        if (isPostMethod) await AuthMiddleware.NavigateProperly(req, res, this.handleLogin.bind(this));
         break;
 
       case '/api/auth/register':
-        if (isPostMethod) await this.handleRegister(req, res);
+        if (isPostMethod) await AuthMiddleware.NavigateProperly(req, res, this.handleRegister.bind(this));
         break;
 
-      case '/api/admin/users':
-        if (!isPostMethod) await this.handleAdminDashboard(req, res);
+      case'/api/auth/logout':
+        if (!isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleLogOut.bind(this));
         break;
 
+      // Pending to delete
       case '/api/auth/check-token':
         if (!isPostMethod) await this.handleCheckToken(req, res);
         break;
 
       case '/api/auth/user':
-        if (!isPostMethod) await this.handleGetUser(req, res);
+        if (!isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGetUser.bind(this));
+        break;
+
+      case '/api/generate-story':
+        if (isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGenerateStory.bind(this));
+        break;
+
+      case '/api/admin/users':
+        if (!isPostMethod) await AuthMiddleware.ValidateRole(req, res, this.handleAdminDashboard.bind(this));
         break;
 
       case '/api/update-user':
-        if (isPostMethod) await this.handleUpdateUser(req, res);
+        if (isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleUpdateUser.bind(this));
         break;
 
       default:
@@ -93,7 +127,9 @@ class Server {
     const result = await userRoutes.updateUser(id, options);
   }
   async handleGetUser(req, res) {
-    const token = req.headers.authorization.split(' ')[1];
+    // Get Token from cookie
+    const cookie = req.headers.cookie;
+    const token = cookie.includes('access_token') ? cookie.split('=')[1] : null;
     const result = await authRoutes.decodeToken(token);
 
     if (result.success) {
@@ -110,7 +146,10 @@ class Server {
 
   }
   async handleCheckToken(req, res) {
-      const token = req.headers.authorization.split(' ')[1];
+      // Get Token from cookie
+      const cookie = req.headers.cookie;
+      const token = cookie.includes('access_token') ? cookie.split('=')[1] : null;
+
       const result = await authRoutes.isTokenValid(token);
       if (result.success) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -128,7 +167,7 @@ class Server {
       const body = await this.getRequestBody(req);
       const { prompt, userId } = JSON.parse(body);
 
-      console.log('Received prompt:', prompt);
+      console.log(`${MESSAGES.logger.info} ${MESSAGES.receivedPrompt} `, prompt);
 
       const generatedStoryPart = await this.generateStory(prompt);
       const promptOptions = [];
@@ -172,18 +211,25 @@ class Server {
       res.end(JSON.stringify({ error: 'An error occurred while fetching users' }));
     }
   }
+
+  async handleLogOut(req, res) {
+    res.setHeader('Set-Cookie', `access_token=; HttpOnly; Secure; SameSite=None; Max-Age=0; Path=/;`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ message: 'Logged out successfully' }));
+  }
   async handleLogin(req, res) {
     try {
       const body = await this.getRequestBody(req);
       const { email, password } = JSON.parse(body);
-  
-      console.log('Login request received:', { email, password }); // Log the input
-  
+    
       const result = await authRoutes.login(email, password);
   
       if (result.success) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ token: result.token }));
+        res.setHeader('Set-Cookie', `access_token=${result.token}; HttpOnly; Secure; SameSite=None; Max-Age=3600; Path=/;`);
+        res.writeHead(200, { 
+          'Content-Type': 'application/json',
+         });
+        res.end(JSON.stringify({ message: "Logged in successfully!" }));
       } else {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: result.error }));
@@ -236,7 +282,6 @@ class Server {
   }
 
   async generatePrompt(storyContext) {
-    // console.log('Generating prompt for:', storyContext);
     const promptOutput = await this.generator(`(NOTE: Do not include the story in your response please) Continue this story \"${storyContext}\" and then place the new input after Next:`, {
       max_length: 200,
       num_return_sequences: 1,
