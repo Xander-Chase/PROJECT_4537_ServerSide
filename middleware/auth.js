@@ -33,7 +33,8 @@ export class AuthMiddleware {
       next(req, res);
     // If the token is invalid, redirect to the login page
     else      
-      window.location.href = '/login';
+      res.writeHead(302, { Location: '/login' });
+      // window.location.href = '/login';
   }
 
   /**
@@ -54,11 +55,11 @@ export class AuthMiddleware {
       // Check if the user is authenticated by cookie token
       const cookie = req.headers.cookie;
       const token = cookie.includes("access_token") ? cookie.split('=')[1] : null;
-
       // If the token is valid, navigate to the home page
       const result = await authRoutes.decodeToken(token);
       if (result.success)
-        window.location.href = '/home';
+        res.writeHead(302, { Location: '/home' });
+        // window.location.href = '/home';
       // Otherwise, call the next function
       else
         next(req, res);
@@ -90,10 +91,15 @@ export class AuthMiddleware {
       if (decoded.role === 'admin')
         next(req, res);
       else
-        window.location.href = '/home';
+      {
+        // If the user is not an admin, redirect to the home page
+        res.writeHead(302, { Location: '/home' });
+      }
     }
     // If the token is invalid, redirect to the login page
     else      
-      window.location.href = "/login";
+      res.writeHead(302, { Location: '/login' });
+
+      // window.location.href = "/login";
   }
 }
