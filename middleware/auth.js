@@ -1,5 +1,10 @@
 // This file contains the middleware class for authentication.
-
+const Messages = {
+  // Use double quotes...
+  TokenNotFound: "Token is not found.",
+  TokenInvalid: "Token is invalid.",
+  UserNotAdmin: "User is not an admin.",
+}
 // Get the required modules, JWT decoding
 import { authRoutes } from "../routes/auth.js";
 
@@ -21,10 +26,17 @@ export class AuthMiddleware {
    * @param {*} next - callback function
    */
   static async ValidateUser(req, res, next) {
-    // Get the access token from the cookie
-    const cookie = req.headers.cookie;
-    const token = cookie.includes("access_token") ? cookie.split('=')[1] : null;
-
+    let token = null;
+    try {
+      // Get the access token from the cookie
+      const cookie = req.headers.cookie;
+      token = cookie.includes("access_token") ? cookie.split('=')[1] : null;
+    }
+    catch (error) {
+      return { 
+        ok: false,
+        success: false, error: Messages.TokenNotFound };
+    }
     // Check if the token is valid
     const result = await authRoutes.decodeToken(token);
 
@@ -33,9 +45,14 @@ export class AuthMiddleware {
       next(req, res);
     // If the token is invalid, redirect to the login page
     else      
-      res.writeHead(302, { Location: '/login' });
-      // window.location.href = '/login';
+      return { 
+        ok: false,
+        success: false, error: Messages.TokenInvalid 
+      };
+    
+    
   }
+
 
   /**
    * Navigates to the home page if the user is authenticated.
@@ -77,10 +94,19 @@ export class AuthMiddleware {
    */
   static async ValidateRole(req, res, next)
   {
-    // Get the access token from the cookie
-    const cookie = req.headers.cookie;
-    const token = cookie.includes("access_token") ? cookie.split('=')[1] : null;
-
+    let token = null;
+    try {
+      // Get the access token from the cookie
+      const cookie = req.headers.cookie;
+      token = cookie.includes("access_token") ? cookie.split('=')[1] : null;
+    }
+    catch(err)
+    {
+      return { 
+        ok: false,
+        success: false, error: Messages.TokenNotFound
+      };
+    }
     // Check if the token is valid
     const result = await authRoutes.decodeToken(token);
 
@@ -93,13 +119,20 @@ export class AuthMiddleware {
       else
       {
         // If the user is not an admin, redirect to the home page
-        res.writeHead(302, { Location: '/home' });
+        // res.writeHead(302, { Location: '/home' });
+        return {
+          ok: false,
+          success: false, error: Messages.UserNotAdmin
+        };
       }
     }
-    // If the token is invalid, redirect to the login page
+    // If the token is invalid, send ok: false
     else      
-      res.writeHead(302, { Location: '/login' });
+      return {
+        ok: false,
+        success: false, error: Messages.TokenInvalid
+      };
+      
 
-      // window.location.href = "/login";
   }
 }
