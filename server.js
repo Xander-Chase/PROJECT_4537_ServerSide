@@ -90,7 +90,7 @@ class Server {
       case'/api/auth/logout':
         if (!isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleLogOut.bind(this));
         break;
-
+                
       // Pending to delete
       case '/api/auth/check-token':
         if (!isPostMethod) await this.handleCheckToken(req, res);
