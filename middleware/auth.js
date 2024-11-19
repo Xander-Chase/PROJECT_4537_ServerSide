@@ -33,9 +33,10 @@ export class AuthMiddleware {
       token = cookie.includes("access_token") ? cookie.split('=')[1] : null;
     }
     catch (error) {
-      return { 
-        ok: false,
-        success: false, error: Messages.TokenNotFound };
+      console.error('Token not found:', error);
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, success: false, error: Messages.TokenNotFound }));
+      return;
     }
     // Check if the token is valid
     const result = await authRoutes.decodeToken(token);
@@ -44,11 +45,11 @@ export class AuthMiddleware {
     if (result.success)
       next(req, res);
     // If the token is invalid, redirect to the login page
-    else      
-      return { 
-        ok: false,
-        success: false, error: Messages.TokenInvalid 
-      };
+    else
+    {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, success: false, error: Messages.TokenInvalid }));
+    }
     
     
   }
@@ -102,10 +103,9 @@ export class AuthMiddleware {
     }
     catch(err)
     {
-      return { 
-        ok: false,
-        success: false, error: Messages.TokenNotFound
-      };
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, success: false, error: Messages.TokenNotFound }));
+      return;
     }
     // Check if the token is valid
     const result = await authRoutes.decodeToken(token);
@@ -120,18 +120,16 @@ export class AuthMiddleware {
       {
         // If the user is not an admin, redirect to the home page
         // res.writeHead(302, { Location: '/home' });
-        return {
-          ok: false,
-          success: false, error: Messages.UserNotAdmin
-        };
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, success: false, error: Messages.UserNotAdmin }));
       }
     }
     // If the token is invalid, send ok: false
     else      
-      return {
-        ok: false,
-        success: false, error: Messages.TokenInvalid
-      };
+      {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ ok: false, success: false, error: Messages.TokenInvalid }));
+      }
       
 
   }
