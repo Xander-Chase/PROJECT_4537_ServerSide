@@ -1,48 +1,36 @@
-// Rename this to "customerRoutes"
-
 import User from '../models/User.js';
+import Endpoint from '../models/Endpoints.js';
+import Role from '../models/Role.js';
+import UserApiUsage from "../models/UserApiUsage.js"
+import Story from '../models/Story.js';
 
-export const adminRoutes = {
-
-    async getAllUsers() {
-
-        try {
-            const users = await User.find().exec();
-            return { success: true, users };
-        } catch (error) {
-            console.error('Get all users error:', error);
-            return { success: false, error: 'An error occurred while fetching users.' };
-        }
+export const getAll = async () => {
+    try {
+        const users = await User.find().exec();
+        const endpoints = await Endpoint.find().exec();
+        const roles = await Role.find().exec();
+        const apiUsage = await UserApiUsage.find().exec();
+        return { success: true, users, endpoints, roles, apiUsage };
+    } catch (error) {
+        console.error('Get all error:', error);
+        return { success: false, error: 'An error occurred while fetching data.' };
     }
 }
 
-export const userRoutes = {
-
-    async getUserbyId(_id)
+export const deleteUserById = async (_id) => 
+{
+    try
     {
-        try
-        {
-            const user = await User.findById(_id);
-            return { success: true, user: user };
-        }
-        catch (error)
-        {
-            console.error('Get user by id error:', error);
-            return { success: false, error: 'An error occurred while fetching user.' };
-        }
-    },
-
-    async updateUser(_id, options)
+        await User.findByIdAndDelete(_id);
+        await Role.findOneAndDelete({ userId: _id });
+        await UserApiUsage.findOneAndDelete({ userId: _id });
+        await Story.findOneAndDelete({ userId: _id });
+        
+        return { success: true };
+    }
+    catch (error)
     {
-        try
-        {
-            const updatedUser = await User.findByIdAndUpdate(_id, options);
-            return { success: true, user: updatedUser };
-        }
-        catch (error)
-        {
-            console.error('Update user by id error:', error);
-            return { success: false, error: 'An error occurred while updating user.' };
-        }
+        console.error('Delete user by id error:', error);
+        return { success: false, error: 'An error occurred while deleting user.' };
     }
 }
