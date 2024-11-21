@@ -3,11 +3,21 @@ import url from 'url';
 import { pipeline } from '@xenova/transformers';
 import connectDB from './db.js'; // MongoDB connection
 import dotenv from 'dotenv'; // Environment variables
-import { authRoutes } from './routes/auth.js'; // Ensure correct import
-import { adminRoutes, userRoutes } from './routes/admin.js'; // Ensure correct import
+
+// Constants
+import { CORS_YOUR_ORIGIN, MappedEndpoints } from './constants/development.js';
+// Route Imports
+import { login, register, decodeToken } from './routes/auth.js'; // Ensure correct import
+import { deleteUserById, getAll } from './routes/admin.js'; // Ensure correct import
+import { updateUser, getEntireUserbyId, createStory } from "./routes/user.js"; // Ensure correct import
+import incrementEndpointCount from './routes/endpoints.js'; // Ensure correct import
+
+// Middleware Imports
 import {AuthMiddleware} from "./middleware/auth.js";
+import { StoryContentObject } from './models/Story.js';
+import { decreaseApiUsageByUserId, updateStoryByUserId } from './routes/misc.js';
 
-
+// Constants and Variables
 // Messages
 // Move to lang/en.js
 const MESSAGES = {
@@ -58,8 +68,7 @@ class Server {
    * @returns response
    */
   async handleRequest(req, res) {
-    const YOUR_ORIGIN = "http://127.0.0.1:3000" // Change this to your localhost origin
-    res.setHeader('Access-Control-Allow-Origin', YOUR_ORIGIN); // Allow CORs on specific origin
+    res.setHeader('Access-Control-Allow-Origin', CORS_YOUR_ORIGIN); // Allow CORs on specific origin
 
     res.setHeader('Access-Control-Allow-Credentials', "true"); // Allow cookies
     res.setHeader('Access-Control-Allow-Headers', "Content-Type");
@@ -79,36 +88,35 @@ class Server {
 
     switch (parsedUrl.pathname) {
       // Auth
-      case '/api/auth/login':
+      case `${MappedEndpoints.Auth}/login`:
         if (isPostMethod) await AuthMiddleware.NavigateProperly(req, res, this.handleLogin.bind(this));
         break;
 
-      case '/api/auth/register':
+      case `${MappedEndpoints.Auth}/register`:
         if (isPostMethod) await AuthMiddleware.NavigateProperly(req, res, this.handleRegister.bind(this));
         break;
 
-      case'/api/auth/logout':
+      case`${MappedEndpoints.Auth}/logout`:
         if (!isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleLogOut.bind(this));
         break;
                 
-      // Pending to delete
-      case '/api/auth/check-token':
-        if (!isPostMethod) await this.handleCheckToken(req, res);
-        break;
-
-      case '/api/auth/user':
+      case `${MappedEndpoints.User}/info`:
         if (!isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGetUser.bind(this));
         break;
 
-      case '/api/generate-story':
+      case `${MappedEndpoints.User}/generate`:
         if (isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGenerateStory.bind(this));
         break;
 
-      case '/api/admin/users':
+      case `${MappedEndpoints.Admin}/dashboard`:
         if (!isPostMethod) await AuthMiddleware.ValidateRole(req, res, this.handleAdminDashboard.bind(this));
         break;
 
-      case '/api/update-user':
+      case `${MappedEndpoints.Admin}/deleteUser`:
+        if (isPostMethod) await AuthMiddleware.ValidateRole(req, res, this.handleDeleteUser.bind(this));
+        break;
+
+      case `${MappedEndpoints.User}/updateStory`:
         if (isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleUpdateUser.bind(this));
         break;
 
@@ -124,19 +132,22 @@ class Server {
     const { id, options } = JSON.parse(body);
 
     // updates user with id and options
-    const result = await userRoutes.updateUser(id, options);
+    const result = await updateUser(id, options);
   }
   async handleGetUser(req, res) {
+    // Increment endpoint count
+    await incrementEndpointCount("GET", `${MappedEndpoints.User}/info`);
+
     // Get Token from cookie
     const cookie = req.headers.cookie;
     const token = cookie.includes('access_token') ? cookie.split('=')[1] : null;
-    const result = await authRoutes.decodeToken(token);
+    const result = await decodeToken(token);
 
     if (result.success) {
       const { id } = result.decoded;
-      const userResult = await userRoutes.getUserbyId(id);
+      const userResult = await getEntireUserbyId(id);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ user: userResult.user }));
+      res.end(JSON.stringify({ user: userResult.user, role: userResult.role, apiUsage: userResult.apiUsage, stories: userResult.stories }));
     }
     else
     {      
@@ -145,27 +156,11 @@ class Server {
     }
 
   }
-  async handleCheckToken(req, res) {
-      // Get Token from cookie
-      const cookie = req.headers.cookie;
-      const token = cookie.includes('access_token') ? cookie.split('=')[1] : null;
-
-      const result = await authRoutes.isTokenValid(token);
-      if (result.success) {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ valid: result.valid }));
-      }
-      else
-      {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: result.error }));
-      }
-  }
 
   async handleGenerateStory(req, res) {
     try {
       const body = await this.getRequestBody(req);
-      const { prompt, userId } = JSON.parse(body);
+      const { prompt, userId, storyId, paginationIndex, prevList, chosenIndex} = JSON.parse(body);
 
       console.log(`${MESSAGES.logger.info} ${MESSAGES.receivedPrompt} `, prompt);
 
@@ -177,7 +172,32 @@ class Server {
         promptOptions.push(generatedPrompt);
       }
 
-      const result = await userRoutes.updateUser(userId, { $push: { stories: generatedStoryPart }, $inc: { api_consumptions: -1 } });
+      const storyContent = new StoryContentObject(
+        generatedStoryPart,
+        promptOptions,
+      )
+      
+      let storyPayload = null;
+      // const result = await updateUser(userId, { $push: { stories: generatedStoryPart }, $inc: { api_consumptions: -1 } });
+      // If storyId is null, create a new story object
+      // otherwise, just update the story object
+      if (storyId === null || storyId === undefined)
+        storyPayload = await createStory(userId, storyContent);
+      else
+      {
+        // First, set the chosen prompt
+        prevList[paginationIndex].chosenPrompt = prevList[paginationIndex].promptOptions[chosenIndex];
+        // Then, push the generated story part
+        prevList.push(storyContent);
+        // Finally, update the story
+        storyPayload = await updateStoryByUserId(userId, { content: prevList });
+      }
+
+      if (!storyPayload.success)
+        throw new Error("An error occurred while creating story", storyPayload.error);
+
+      // down here, decrease api usage
+      const result = await decreaseApiUsageByUserId(userId);
       if (!(result.success))
       {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -186,7 +206,7 @@ class Server {
 
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ generatedStoryPart, promptOptions }));
+      res.end(JSON.stringify({ storyObj: storyPayload }));
     } catch (error) {
       console.error('Error generating story:', error);
       res.writeHead(500);
@@ -196,11 +216,16 @@ class Server {
 
   async handleAdminDashboard(req, res) {
     try {
-      const result = await adminRoutes.getAllUsers();
+      const result = await getAll();
 
       if (result.success) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ users: result.users }));
+        res.end(JSON.stringify({ 
+          users: result.users,
+          endpoints: result.endpoints,
+          roles: result.roles,
+          apiUsage: result.apiUsage,
+         }));
       } else {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: result.error }));
@@ -210,6 +235,22 @@ class Server {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'An error occurred while fetching users' }));
     }
+  }
+
+  async handleDeleteUser(req, res) {
+      const body = await this.getRequestBody(req);
+      const { id } = JSON.parse(body);
+
+      const result = await deleteUserById(id);
+
+      if (result.success) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'User deleted successfully' }));
+      } 
+      else {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: "An error occurred while deleting user" }));
+      }
   }
 
   async handleLogOut(req, res) {
@@ -222,7 +263,7 @@ class Server {
       const body = await this.getRequestBody(req);
       const { email, password } = JSON.parse(body);
     
-      const result = await authRoutes.login(email, password);
+      const result = await login(email, password);
   
       if (result.success) {
         res.setHeader('Set-Cookie', `access_token=${result.token}; HttpOnly; Secure; SameSite=None; Max-Age=3600; Path=/;`);
@@ -252,7 +293,7 @@ class Server {
         return res.end(JSON.stringify({ error: 'All fields are required' }));
       }
 
-      const result = await authRoutes.register(username, email, password);
+      const result = await register(username, email, password);
 
       if (result.success) {
         res.writeHead(201, { 'Content-Type': 'application/json' });

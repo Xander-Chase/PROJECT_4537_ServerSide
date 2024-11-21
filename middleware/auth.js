@@ -6,7 +6,7 @@ const Messages = {
   UserNotAdmin: "User is not an admin.",
 }
 // Get the required modules, JWT decoding
-import { authRoutes } from "../routes/auth.js";
+import { decodeToken } from "../routes/auth.js";
 
 /**
  * Middleware class for authentication
@@ -39,7 +39,7 @@ export class AuthMiddleware {
       return;
     }
     // Check if the token is valid
-    const result = await authRoutes.decodeToken(token);
+    const result = await decodeToken(token);
 
     // If the token is valid, call the next function
     if (result.success)
@@ -74,7 +74,7 @@ export class AuthMiddleware {
       const cookie = req.headers.cookie;
       const token = cookie.includes("access_token") ? cookie.split('=')[1] : null;
       // If the token is valid, navigate to the home page
-      const result = await authRoutes.decodeToken(token);
+      const result = await decodeToken(token);
       if (result.success)
         res.writeHead(302, { Location: '/home' });
         // window.location.href = '/home';
@@ -108,7 +108,7 @@ export class AuthMiddleware {
       return;
     }
     // Check if the token is valid
-    const result = await authRoutes.decodeToken(token);
+    const result = await decodeToken(token);
 
     // If the token is valid, call the next function
     if (result.success)
