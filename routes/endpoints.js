@@ -1,4 +1,4 @@
-import Endpoint from "../models/Endpoints";
+import Endpoint from "../models/Endpoints.js";
 
 // this contains
 // creation of Endpoint
@@ -19,7 +19,7 @@ const createEndpoint = async (method, endpoint) =>
     }
 }
 
-export const incrementEndpointCount = async (method, endpoint) => 
+const incrementEndpointCount = async (method, endpoint) => 
 {
     try
     {
@@ -39,3 +39,4 @@ export const incrementEndpointCount = async (method, endpoint) =>
         return { success: false, error: 'An error occurred while incrementing endpoint count.' };
     }
 }
+export default incrementEndpointCount;

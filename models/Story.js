@@ -10,7 +10,12 @@ export class StoryContentObject
   {
     this.description = description; // 1
     this.prompts = prompts; // 4
-    this.chosenPrompt = chosenPrompt; // 1
+    this.chosenPrompt = chosenPrompt ?? ""; // 1
+  }
+
+  setChosenPrompt(chosenPrompt)
+  {
+    this.chosenPrompt = chosenPrompt;
   }
 }
 

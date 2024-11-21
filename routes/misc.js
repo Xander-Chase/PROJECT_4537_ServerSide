@@ -1,5 +1,5 @@
-import Story from "../models/Story";
-import UserApiUsage from "../models/UserApiUsage";
+import Story from "../models/Story.js";
+import UserApiUsage from "../models/UserApiUsage.js";
 
 // Update a story by userId
 // Update user api usage by Id

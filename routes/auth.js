@@ -50,7 +50,7 @@ export const login = async (email, password) =>
     if (!isMatch) 
       return { success: false, error: 'Invalid credentials. Incorrect password.' };
 
-    const token = await this.encodeToken({ id: user._id, email: user.email, username: user.username });
+    const token = await encodeToken({ id: user._id, email: user.email, username: user.username });
     return { success: true, token: token};
   } catch (error) {
     console.error('Login error:', error);
@@ -85,11 +85,6 @@ export const register = async (username, email, password) =>
       role: "user"
     });
 
-    // Create a new Story
-    const storyObj = new Story({
-      userId: `${user.id}`
-    });
-
     // Create a new UserApiUsage
     const userApiUsageObj = new UserApiUsage({
       userId: `${user.id}`
@@ -98,9 +93,8 @@ export const register = async (username, email, password) =>
     // Save operation has a hash password middleware
     await user.save();
 
-    // Save the role, story, and userApiUsage
+    // Save the role and userApiUsage
     await roleObj.save();
-    await storyObj.save();
     await userApiUsageObj.save();
 
     return { success: true };

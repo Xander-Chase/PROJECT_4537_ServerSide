@@ -3,6 +3,35 @@ import Role from '../models/Role.js';
 import UserApiUsage from "../models/UserApiUsage.js"
 import Story from "../models/Story.js";
 
+export const getEntireUserbyId = async (_id) =>
+{
+    try
+    {
+        const userPayload = await getUserbyId(_id);
+        const rolePayload = await getUserRoleById(_id);
+        const apiUsagePayload = await getUserApiUsageById(_id);
+        const storiesPayload = await getStoriesById(_id);
+        return { success: true, 
+            user: {
+                _id: userPayload.user._id,
+                username: userPayload.user.username,
+                email: userPayload.user.email,
+            }, 
+            role: {
+                role: rolePayload.role.role
+            },
+            apiUsage: {
+                count: apiUsagePayload.apiUsage.count
+            },
+            stories: storiesPayload.stories
+        };
+    }
+    catch (error)
+    {
+        console.error('Get user by id error:', error);
+        return { success: false, error: 'An error occurred while fetching user.' };
+    }
+}
 export const getUserbyId = async (_id) =>
 {
     try
@@ -62,16 +91,40 @@ export const getUserApiUsageById = async (_id) =>
 }
 
 // Purpose: Dashboard Page
-export const getStoryById = async (_id) =>
+export const getStoriesById = async (_id) =>
 {
     try
     {
-        const story = await Story.findOne({ userId: _id });
-        return { success: true, story: story };
+        const stories = (await Story.find({ userId: _id })).map(
+            story => {
+                return {
+                    _id: story._id,
+                    title: story.title,
+                    summary: story.summary,
+                    content: story.content,
+                    updated: story.updated
+                };
+        });
+        return { success: true, stories: stories };
     }
     catch (error)
     {
         console.error('Get story by id error:', error);
         return { success: false, error: 'An error occurred while fetching story.' };
+    }
+}
+
+export const createStory = async (_id, content) =>
+{
+    try
+    {
+        const newStory = new Story({ userId: _id, content: content });
+        await newStory.save();
+        return { success: true, story: newStory };
+    }
+    catch (error)
+    {
+        console.error('Create story error:', error);
+        return { success: false, error: 'An error occurred while creating story.' };
     }
 }

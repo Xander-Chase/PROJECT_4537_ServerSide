@@ -9,11 +9,13 @@ import { CORS_YOUR_ORIGIN, MappedEndpoints } from './constants/development.js';
 // Route Imports
 import { login, register, decodeToken } from './routes/auth.js'; // Ensure correct import
 import { deleteUserById, getAll } from './routes/admin.js'; // Ensure correct import
-import { updateUser, getUserbyId, getUserRoleById, getUserApiUsageById, getStoryById } from "./routes/user.js"; // Ensure correct import
+import { updateUser, getEntireUserbyId, createStory } from "./routes/user.js"; // Ensure correct import
 import incrementEndpointCount from './routes/endpoints.js'; // Ensure correct import
 
 // Middleware Imports
 import {AuthMiddleware} from "./middleware/auth.js";
+import { StoryContentObject } from './models/Story.js';
+import { decreaseApiUsageByUserId, updateStoryByUserId } from './routes/misc.js';
 
 // Constants and Variables
 // Messages
@@ -135,7 +137,7 @@ class Server {
   async handleGetUser(req, res) {
     // Increment endpoint count
     await incrementEndpointCount("GET", `${MappedEndpoints.User}/info`);
-    
+
     // Get Token from cookie
     const cookie = req.headers.cookie;
     const token = cookie.includes('access_token') ? cookie.split('=')[1] : null;
@@ -143,9 +145,9 @@ class Server {
 
     if (result.success) {
       const { id } = result.decoded;
-      const userResult = await getUserbyId(id);
+      const userResult = await getEntireUserbyId(id);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ user: userResult.user }));
+      res.end(JSON.stringify({ user: userResult.user, role: userResult.role, apiUsage: userResult.apiUsage, stories: userResult.stories }));
     }
     else
     {      
@@ -158,7 +160,7 @@ class Server {
   async handleGenerateStory(req, res) {
     try {
       const body = await this.getRequestBody(req);
-      const { prompt, userId } = JSON.parse(body);
+      const { prompt, userId, storyId, paginationIndex, prevList, chosenIndex} = JSON.parse(body);
 
       console.log(`${MESSAGES.logger.info} ${MESSAGES.receivedPrompt} `, prompt);
 
@@ -170,7 +172,32 @@ class Server {
         promptOptions.push(generatedPrompt);
       }
 
-      const result = await updateUser(userId, { $push: { stories: generatedStoryPart }, $inc: { api_consumptions: -1 } });
+      const storyContent = new StoryContentObject(
+        generatedStoryPart,
+        promptOptions,
+      )
+      
+      let storyPayload = null;
+      // const result = await updateUser(userId, { $push: { stories: generatedStoryPart }, $inc: { api_consumptions: -1 } });
+      // If storyId is null, create a new story object
+      // otherwise, just update the story object
+      if (storyId === null || storyId === undefined)
+        storyPayload = await createStory(userId, storyContent);
+      else
+      {
+        // First, set the chosen prompt
+        prevList[paginationIndex].chosenPrompt = prevList[paginationIndex].promptOptions[chosenIndex];
+        // Then, push the generated story part
+        prevList.push(storyContent);
+        // Finally, update the story
+        storyPayload = await updateStoryByUserId(userId, { content: prevList });
+      }
+
+      if (!storyPayload.success)
+        throw new Error("An error occurred while creating story", storyPayload.error);
+
+      // down here, decrease api usage
+      const result = await decreaseApiUsageByUserId(userId);
       if (!(result.success))
       {
           res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -179,7 +206,7 @@ class Server {
 
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ generatedStoryPart, promptOptions }));
+      res.end(JSON.stringify({ storyObj: storyPayload }));
     } catch (error) {
       console.error('Error generating story:', error);
       res.writeHead(500);
