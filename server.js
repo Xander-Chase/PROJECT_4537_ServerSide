@@ -171,7 +171,7 @@ class Server {
     try
     {
       const body = await this.getRequestBody(req);
-      const { prompt, userId, storyId, paginationIndex, prevList, chosenIndex} = JSON.parse(body);
+      const { prompt, storyId, paginationIndex, prevList, chosenIndex} = JSON.parse(body);
 
       console.log(`${MESSAGES.logger.info} ${MESSAGES.receivedPrompt} `, prompt);
 
@@ -188,7 +188,6 @@ class Server {
         promptOptions,
       )
       
-      console.log("PrevList: ", prevList);
       // First, set the chosen prompt
       prevList[paginationIndex].chosenPrompt = prevList[paginationIndex].prompts[chosenIndex];
       // Then, push the generated story part
@@ -198,14 +197,6 @@ class Server {
 
       if (!storyPayload.success)
         throw new Error("An error occurred while creating story", storyPayload.error);
-
-      // down here, decrease api usage
-      const result = await decreaseApiUsageByUserId(userId);
-      if (!(result.success))
-      {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: result.error  }));
-      }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ storyObj: storyPayload }));
