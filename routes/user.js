@@ -3,6 +3,18 @@ import Role from '../models/Role.js';
 import UserApiUsage from "../models/UserApiUsage.js"
 import Story from "../models/Story.js";
 
+// Dont include stories
+export const adminGetEntireUserById = async (_id) => 
+{
+    const data = await getEntireUserbyId(_id);
+    if (data.success)
+    {
+        delete data.stories;
+        return { success: true, user: data.user, role: data.role, apiUsage: data.apiUsage };
+    }
+    return { success: false, error: data.error };
+}
+
 export const getEntireUserbyId = async (_id) =>
 {
     try

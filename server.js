@@ -320,10 +320,8 @@ class Server {
       if (result.success) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ 
-          users: result.users,
           endpoints: result.endpoints,
-          roles: result.roles,
-          apiUsage: result.apiUsage,
+          data: result.data,
          }));
       } else {
         res.writeHead(400, { 'Content-Type': 'application/json' });

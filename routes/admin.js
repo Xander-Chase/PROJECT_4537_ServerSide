@@ -3,14 +3,26 @@ import Endpoint from '../models/Endpoints.js';
 import Role from '../models/Role.js';
 import UserApiUsage from "../models/UserApiUsage.js"
 import Story from '../models/Story.js';
+import { adminGetEntireUserById} from './user.js';
 
 export const getAll = async () => {
     try {
-        const users = await User.find().exec();
+        const allUsers = await User.find().exec();
+        let userData = [];
+        for (let user of allUsers)
+        {
+            const payload = await adminGetEntireUserById(user._id);
+            if (!payload.success)
+                throw new Error(payload.error);
+            userData.push({
+                user: payload.user,
+                role: payload.role,
+                apiUsage: payload.apiUsage,
+            });
+        }
+            
         const endpoints = await Endpoint.find().exec();
-        const roles = await Role.find().exec();
-        const apiUsage = await UserApiUsage.find().exec();
-        return { success: true, users, endpoints, roles, apiUsage };
+        return { success: true, endpoints, data: userData};
     } catch (error) {
         console.error('Get all error:', error);
         return { success: false, error: 'An error occurred while fetching data.' };

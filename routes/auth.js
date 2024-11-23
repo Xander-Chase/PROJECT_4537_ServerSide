@@ -50,7 +50,10 @@ export const login = async (email, password) =>
     if (!isMatch) 
       return { success: false, error: 'Invalid credentials. Incorrect password.' };
 
-    const token = await encodeToken({ id: user._id, email: user.email, username: user.username });
+    // Get role
+    const role = await Role.findOne({ userId: user._id }).exec();
+
+    const token = await encodeToken({ id: user._id, email: user.email, username: user.username, role: role.role });
     return { success: true, token: token};
   } catch (error) {
     console.error('Login error:', error);
