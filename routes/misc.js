@@ -7,7 +7,6 @@ import UserApiUsage from "../models/UserApiUsage.js";
 // this will update, title, summary, and content
 // for content, it handles 
 // adding an element
-// deleting an element
 export const updateStoryByUserId = async (_id, options) => 
 {
     try
@@ -18,6 +17,33 @@ export const updateStoryByUserId = async (_id, options) =>
     {
         console.error('Update story by id error:', error);
         return { success: false, error: 'An error occurred while updating story.' };
+    }
+}
+
+export const updateStoryById = async (_id, options) =>
+{
+    try
+    {
+        const updatedStory = await Story.findOneAndUpdate({ _id: _id }, options, { new: true });
+        return { success: true, story: updatedStory };
+    } catch (error)
+    {
+        console.error('Update story by id error:', error);
+        return { success: false, error: 'An error occurred while updating story.' };
+    }
+}
+
+export const deleteStoryByStoryId = async (_id) =>
+{
+    try
+    {
+        await Story.deleteOne({_id: _id});
+        return { success: true };
+    }
+    catch (error)
+    {
+        console.error('Delete story by id error:', error);
+        return { success: false, error: 'An error occurred while deleting story.' };
     }
 }
 

@@ -15,7 +15,7 @@ import incrementEndpointCount from './routes/endpoints.js'; // Ensure correct im
 // Middleware Imports
 import {AuthMiddleware} from "./middleware/auth.js";
 import { StoryContentObject } from './models/Story.js';
-import { decreaseApiUsageByUserId, updateStoryByUserId } from './routes/misc.js';
+import { decreaseApiUsageByUserId, deleteStoryByStoryId, updateStoryById, updateStoryByUserId } from './routes/misc.js';
 
 // Constants and Variables
 // Messages
@@ -72,7 +72,7 @@ class Server {
 
     res.setHeader('Access-Control-Allow-Credentials', "true"); // Allow cookies
     res.setHeader('Access-Control-Allow-Headers', "Content-Type");
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', "GET, POST, DELETE, PUT, OPTIONS");
     
     const parsedUrl = url.parse(req.url, true);
     const method = req.method;
@@ -84,7 +84,10 @@ class Server {
       return;
     }
 
-    const isPostMethod = method === 'POST';
+    const isGetMethod = method === "GET";
+    const isPostMethod = method === "POST";
+    const isPutMethod = method === "PUT";
+    const isDeleteMethod = method === "DELETE";
 
     switch (parsedUrl.pathname) {
       // Auth
@@ -101,25 +104,32 @@ class Server {
         break;
                 
       case `${MappedEndpoints.User}/info`:
-        if (!isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGetUser.bind(this));
+        if (isGetMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGetUser.bind(this));
         break;
 
       case `${MappedEndpoints.User}/generate`:
         if (isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGenerateStory.bind(this));
         break;
 
+      case `${MappedEndpoints.User}/generateNext`:
+        if (isPutMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGenerateNextStory.bind(this));
+        break;
+
       case `${MappedEndpoints.Admin}/dashboard`:
-        if (!isPostMethod) await AuthMiddleware.ValidateRole(req, res, this.handleAdminDashboard.bind(this));
+        if (isGetMethod) await AuthMiddleware.ValidateRole(req, res, this.handleAdminDashboard.bind(this));
         break;
 
       case `${MappedEndpoints.Admin}/deleteUser`:
-        if (isPostMethod) await AuthMiddleware.ValidateRole(req, res, this.handleDeleteUser.bind(this));
+        if (isDeleteMethod) await AuthMiddleware.ValidateRole(req, res, this.handleDeleteUser.bind(this));
         break;
 
       case `${MappedEndpoints.User}/updateStory`:
-        if (isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleUpdateUser.bind(this));
+        if (isPutMethod) await AuthMiddleware.ValidateUser(req, res, this.handleUpdateStoryOverall.bind(this));
         break;
 
+      case `${MappedEndpoints.User}/deleteStory`:
+        if (isDeleteMethod) await AuthMiddleware.ValidateUser(req, res, this.handleDeleteStory.bind(this));
+        break;
       default:
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Route not found' }));
@@ -157,10 +167,11 @@ class Server {
 
   }
 
-  async handleGenerateStory(req, res) {
-    try {
+  async handleGenerateNextStory(req, res) {
+    try
+    {
       const body = await this.getRequestBody(req);
-      const { prompt, userId, storyId, paginationIndex, prevList, chosenIndex} = JSON.parse(body);
+      const { prompt, storyId, paginationIndex, prevList, chosenIndex} = JSON.parse(body);
 
       console.log(`${MESSAGES.logger.info} ${MESSAGES.receivedPrompt} `, prompt);
 
@@ -177,22 +188,50 @@ class Server {
         promptOptions,
       )
       
-      let storyPayload = null;
-      // const result = await updateUser(userId, { $push: { stories: generatedStoryPart }, $inc: { api_consumptions: -1 } });
-      // If storyId is null, create a new story object
-      // otherwise, just update the story object
-      if (storyId === null || storyId === undefined)
-        storyPayload = await createStory(userId, storyContent);
-      else
-      {
-        // First, set the chosen prompt
-        prevList[paginationIndex].chosenPrompt = prevList[paginationIndex].promptOptions[chosenIndex];
-        // Then, push the generated story part
-        prevList.push(storyContent);
-        // Finally, update the story
-        storyPayload = await updateStoryByUserId(userId, { content: prevList });
+      // First, set the chosen prompt
+      prevList[paginationIndex].chosenPrompt = prevList[paginationIndex].prompts[chosenIndex];
+      // Then, push the generated story part
+      prevList.push(storyContent);
+      // Finally, update the story
+      const storyPayload = await updateStoryById(storyId, { content: prevList });
+
+      if (!storyPayload.success)
+        throw new Error("An error occurred while creating story", storyPayload.error);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ storyObj: storyPayload }));
+    }
+    catch (error)
+    {
+      console.error('Error generating story:', error);
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: "Error generating story" }));
+    }
+  }
+  async handleGenerateStory(req, res) {
+    try {
+      const body = await this.getRequestBody(req);
+      const { prompt, userId} = JSON.parse(body);
+
+      console.log(`${MESSAGES.logger.info} ${MESSAGES.receivedPrompt} `, prompt);
+
+      const generatedStoryPart = await this.generateStory(prompt);
+      const promptOptions = [];
+
+      for (let i = 0; i < 4; i++) {
+        const generatedPrompt = await this.generatePrompt(generatedStoryPart);
+        promptOptions.push(generatedPrompt);
       }
 
+      const storyContent = new StoryContentObject(
+        generatedStoryPart,
+        promptOptions,
+      )
+      
+      // const result = await updateUser(userId, { $push: { stories: generatedStoryPart }, $inc: { api_consumptions: -1 } });
+
+      const storyPayload = await createStory(userId, storyContent);
+      
       if (!storyPayload.success)
         throw new Error("An error occurred while creating story", storyPayload.error);
 
@@ -211,6 +250,43 @@ class Server {
       console.error('Error generating story:', error);
       res.writeHead(500);
       res.end(JSON.stringify({ error: 'Error generating story' }));
+    }
+  }
+
+  // Updates the title and summary
+  async handleUpdateStoryOverall(req, res) 
+  {
+    const body = await this.getRequestBody(req);
+    const { title, summary, storyId } = JSON.parse(body);
+
+    const result = await updateStoryById(storyId, { title: title, summary: summary });
+
+    if (result.success) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Story updated successfully' }));
+    } 
+    else
+    {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: "An error occurred while updating story" }));
+    }
+  }
+
+  async handleDeleteStory(req, res)
+  {
+    const body = await this.getRequestBody(req);
+    const { storyId } = JSON.parse(body);
+
+    // Once finished, call the deleteStorybyStoryId function
+    const result = await deleteStoryByStoryId(storyId);
+
+    if (result.success) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ message: 'Story deleted successfully' }));
+    } 
+    else {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: "An error occurred while deleting story" }));
     }
   }
 
