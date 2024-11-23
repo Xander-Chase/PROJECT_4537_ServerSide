@@ -100,7 +100,7 @@ class Server {
         break;
 
       case`${MappedEndpoints.Auth}/logout`:
-        if (!isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleLogOut.bind(this));
+        if (isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleLogOut.bind(this));
         break;
                 
       case `${MappedEndpoints.User}/info`:
@@ -196,6 +196,7 @@ class Server {
       const body = await this.getRequestBody(req);
       const { prompt, storyId, paginationIndex, prevList, chosenIndex} = JSON.parse(body);
 
+      await incrementEndpointCount("PUT", `${MappedEndpoints.User}/generateNext`);
       console.log(`${MESSAGES.logger.info} ${MESSAGES.receivedPrompt} `, prompt);
 
       const generatedStoryPart = await this.generateStory(prompt);
@@ -235,6 +236,8 @@ class Server {
     try {
       const body = await this.getRequestBody(req);
       const { prompt, userId} = JSON.parse(body);
+
+      await incrementEndpointCount("POST", `${MappedEndpoints.User}/generate`);
 
       console.log(`${MESSAGES.logger.info} ${MESSAGES.receivedPrompt} `, prompt);
 
@@ -282,6 +285,7 @@ class Server {
     const body = await this.getRequestBody(req);
     const { title, summary, storyId } = JSON.parse(body);
 
+    await incrementEndpointCount("PUT", `${MappedEndpoints.User}/updateStory`);
     const result = await updateStoryById(storyId, { title: title, summary: summary });
 
     if (result.success) {
@@ -300,6 +304,8 @@ class Server {
     const body = await this.getRequestBody(req);
     const { storyId } = JSON.parse(body);
 
+    await incrementEndpointCount("DELETE", `${MappedEndpoints.User}/deleteStory`);
+
     // Once finished, call the deleteStorybyStoryId function
     const result = await deleteStoryByStoryId(storyId);
 
@@ -315,6 +321,7 @@ class Server {
 
   async handleAdminDashboard(req, res) {
     try {
+      await incrementEndpointCount("GET", `${MappedEndpoints.Admin}/dashboard`);
       const result = await getAll();
 
       if (result.success) {
@@ -340,6 +347,7 @@ class Server {
 
       const result = await deleteUserById(id);
 
+      await incrementEndpointCount("DELETE", `${MappedEndpoints.Admin}/deleteUser`);
       if (result.success) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ message: 'User deleted successfully' }));
@@ -351,6 +359,8 @@ class Server {
   }
 
   async handleLogOut(req, res) {
+
+    await incrementEndpointCount("POST", `${MappedEndpoints.Auth}/logout`);
     res.setHeader('Set-Cookie', `access_token=; HttpOnly; Secure; SameSite=None; Max-Age=0; Path=/;`);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ message: 'Logged out successfully' }));
@@ -359,7 +369,8 @@ class Server {
     try {
       const body = await this.getRequestBody(req);
       const { email, password } = JSON.parse(body);
-    
+  
+      await incrementEndpointCount("POST", `${MappedEndpoints.Auth}/login`);
       const result = await login(email, password);
   
       if (result.success) {
@@ -385,6 +396,7 @@ class Server {
       const body = await this.getRequestBody(req);
       const { username, email, password } = JSON.parse(body);
 
+      await incrementEndpointCount("POST", `${MappedEndpoints.Auth}/register`);
       if (!username || !email || !password) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: 'All fields are required' }));
