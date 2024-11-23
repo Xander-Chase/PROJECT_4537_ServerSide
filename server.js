@@ -9,7 +9,7 @@ import { CORS_YOUR_ORIGIN, MappedEndpoints } from './constants/development.js';
 // Route Imports
 import { login, register, decodeToken } from './routes/auth.js'; // Ensure correct import
 import { deleteUserById, getAll } from './routes/admin.js'; // Ensure correct import
-import { updateUser, getEntireUserbyId, createStory } from "./routes/user.js"; // Ensure correct import
+import { updateUser, getEntireUserbyId, createStory, getUserApiUsageById } from "./routes/user.js"; // Ensure correct import
 import incrementEndpointCount from './routes/endpoints.js'; // Ensure correct import
 
 // Middleware Imports
@@ -107,6 +107,10 @@ class Server {
         if (isGetMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGetUser.bind(this));
         break;
 
+      case `${MappedEndpoints.User}/getApiUsage`:
+        if (isGetMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGetUserApiUsage.bind(this));
+        break;
+        
       case `${MappedEndpoints.User}/generate`:
         if (isPostMethod) await AuthMiddleware.ValidateUser(req, res, this.handleGenerateStory.bind(this));
         break;
@@ -136,6 +140,25 @@ class Server {
     }
   }
 
+  handleGetUserApiUsage = async (req, res) => {
+    // Increment endpoint count
+    await incrementEndpointCount("GET", `${MappedEndpoints.User}/getApiUsage`);
+
+    // Get Token from cookie
+    const cookie = req.headers.cookie;
+    const token = cookie.includes('access_token') ? cookie.split('=')[1] : null;
+    const result = await decodeToken(token);
+
+    if (result.success) {
+      const { id } = result.decoded;
+      const userResult = await getUserApiUsageById(id);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ apiUsage: userResult.apiUsage }));
+    } else {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid token' }));
+    }
+  }
   async handleUpdateUser(req, res) {
     // gets id from request body
     const body = await this.getRequestBody(req);
