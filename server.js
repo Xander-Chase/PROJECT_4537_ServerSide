@@ -10,7 +10,7 @@ import { CORS_YOUR_ORIGIN, MappedEndpoints } from './constants/development.js';
 // Route Imports
 import { login, register, decodeToken } from './routes/auth.js'; // Ensure correct import
 import { deleteUserById, getAll } from './routes/admin.js'; // Ensure correct import
-import { createStory, getUserApiUsageById } from "./routes/user.js"; // Ensure correct import
+import { getEntireUserbyId, createStory, getUserApiUsageById } from "./routes/user.js"; // Ensure correct import
 import incrementEndpointCount from './routes/endpoints.js'; // Ensure correct import
 
 // Middleware Imports
@@ -158,6 +158,28 @@ class Server {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ apiUsage: userResult.apiUsage }));
     } else {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: Messages.TokenInvalid }));
+    }
+  }
+
+  handleGetUser = async (req, res) => 
+  {
+    // Increment endpoint count
+    await incrementEndpointCount("GET", `${MappedEndpoints.User}/info`);
+    // Get Token from cookie
+    const cookie = req.headers.cookie;
+    const token = cookie.includes('access_token') ? cookie.split('=')[1] : null;
+    const result = await decodeToken(token);
+
+    if (result.success) {
+      const { id } = result.decoded;
+      const userResult = await getEntireUserbyId(id);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ user: userResult.user, role: userResult.role, apiUsage: userResult.apiUsage, stories: userResult.stories }));
+    }
+    else
+    {      
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: Messages.TokenInvalid }));
     }

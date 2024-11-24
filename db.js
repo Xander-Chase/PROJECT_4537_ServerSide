@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import { Messages } from './constants/en';
+import { Messages } from './constants/en.js';
 
 dotenv.config(); // Load environment variables
 
