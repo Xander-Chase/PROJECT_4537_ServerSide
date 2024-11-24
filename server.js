@@ -1,10 +1,10 @@
 import http from 'http';
 import url from 'url';
-import { pipeline } from '@xenova/transformers';
 import connectDB from './db.js'; // MongoDB connection
 import dotenv from 'dotenv'; // Environment variables
 import { authRoutes } from './routes/auth.js'; // Ensure correct import
 import { adminRoutes, userRoutes } from './routes/admin.js'; // Ensure correct import
+import { AutoTokenizer, pipeline } from '@xenova/transformers';
 
 dotenv.config(); // Load environment variables
 
@@ -19,9 +19,11 @@ class Server {
 
   async loadModel() {
     try {
-      console.log('Loading model...');
-      this.generator = await pipeline('text-generation', 'EleutherAI/gpt-neo-1.3B');
-      console.log('Model loaded.');
+      console.log('Initializing pipeline...');
+      const tokenizer = await AutoTokenizer.from_pretrained('EleutherAI/gpt-neo-1.3B');
+      console.log('Tokenizer loaded successfully:', tokenizer);
+      this.generator = await pipeline('text-generation', 'EleutherAI/gpt-neo-1.3B', { tokenizer });
+      console.log('Pipeline initialized successfully.');
     } catch (error) {
       console.error('Error loading model:', error);
       process.exit(1);
