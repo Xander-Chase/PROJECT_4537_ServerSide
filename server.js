@@ -10,13 +10,14 @@ import { CORS_YOUR_ORIGIN, MappedEndpoints } from './constants/development.js';
 // Route Imports
 import { login, register, decodeToken } from './routes/auth.js'; // Ensure correct import
 import { deleteUserById, getAll } from './routes/admin.js'; // Ensure correct import
-import { updateUser, getEntireUserbyId, createStory, getUserApiUsageById } from "./routes/user.js"; // Ensure correct import
+import { createStory, getUserApiUsageById } from "./routes/user.js"; // Ensure correct import
 import incrementEndpointCount from './routes/endpoints.js'; // Ensure correct import
 
 // Middleware Imports
 import {AuthMiddleware} from "./middleware/auth.js";
 import { StoryContentObject } from './models/Story.js';
 import { decreaseApiUsageByUserId, deleteStoryByStoryId, updateStoryById, updateStoryByUserId } from './routes/misc.js';
+import { Messages } from './constants/en.js';
 
 // Constants and Variables
 // Messages
@@ -30,6 +31,7 @@ const MESSAGES = {
   receivedPrompt: "Received Prompt:",
   loadingModel: "Loading model...",
   modelLoaded: "Model loaded successfully",
+  routeNotFound: "Route not found"
 }
 dotenv.config(); // Load environment variables
 
@@ -51,17 +53,12 @@ class Server {
    */
   async loadModel() {
     try {
-      /*
+      
       console.log(`${MESSAGES.logger.info} ${MESSAGES.loadingModel}`);
-      this.generator = await pipeline('text-generation', 'Xenova/distilgpt2');
-      console.log(`${MESSAGES.logger.info} ${MESSAGES.modelLoaded}`);
-      */
-      console.log('Loading model...');
       this.generator = await pipeline('text-generation', 'Xenova/gpt2-large-conversational');
-      console.log('Model loaded successfully.');
+      console.log(`${MESSAGES.logger.info} ${MESSAGES.modelLoaded}`);
 
     } catch (error) {
-      console.error('Error loading model:', error);
       process.exit(1);
     }
   }
@@ -142,7 +139,7 @@ class Server {
         break;
       default:
         res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Route not found' }));
+        res.end(JSON.stringify({ error: MESSAGES.routeNotFound }));
     }
   }
 
@@ -162,41 +159,12 @@ class Server {
       res.end(JSON.stringify({ apiUsage: userResult.apiUsage }));
     } else {
       res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Invalid token' }));
+      res.end(JSON.stringify({ error: Messages.TokenInvalid }));
     }
   }
-  async handleUpdateUser(req, res) {
-    // gets id from request body
-    const body = await this.getRequestBody(req);
-    const { id, options } = JSON.parse(body);
 
-    // updates user with id and options
-    const result = await updateUser(id, options);
-  }
-  async handleGetUser(req, res) {
-    // Increment endpoint count
-    await incrementEndpointCount("GET", `${MappedEndpoints.User}/info`);
-
-    // Get Token from cookie
-    const cookie = req.headers.cookie;
-    const token = cookie.includes('access_token') ? cookie.split('=')[1] : null;
-    const result = await decodeToken(token);
-
-    if (result.success) {
-      const { id } = result.decoded;
-      const userResult = await getEntireUserbyId(id);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ user: userResult.user, role: userResult.role, apiUsage: userResult.apiUsage, stories: userResult.stories }));
-    }
-    else
-    {      
-      res.writeHead(401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Invalid token' }));
-    }
-
-  }
-
-  async handleGenerateNextStory(req, res) {
+  handleGenerateNextStory = async (req, res) => 
+  {
     try
     {
       const body = await this.getRequestBody(req);
@@ -226,19 +194,20 @@ class Server {
       const storyPayload = await updateStoryById(storyId, { content: prevList });
 
       if (!storyPayload.success)
-        throw new Error("An error occurred while creating story", storyPayload.error);
+        throw new Error(Messages.ErrorCreatingStory, storyPayload.error);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ storyObj: storyPayload }));
     }
     catch (error)
     {
-      console.error('Error generating story:', error);
       res.writeHead(500);
-      res.end(JSON.stringify({ error: "Error generating story" }));
+      res.end(JSON.stringify({ error: Messages.ErrorCreatingStory }));
     }
   }
-  async handleGenerateStory(req, res) {
+
+  handleGenerateStory = async (req, res) =>
+  {
     try {
       const body = await this.getRequestBody(req);
       const { prompt, userId} = JSON.parse(body);
@@ -260,12 +229,10 @@ class Server {
         promptOptions,
       )
       
-      // const result = await updateUser(userId, { $push: { stories: generatedStoryPart }, $inc: { api_consumptions: -1 } });
-
       const storyPayload = await createStory(userId, storyContent);
       
       if (!storyPayload.success)
-        throw new Error("An error occurred while creating story", storyPayload.error);
+        throw new Error(Messages.ErrorCreatingStory, storyPayload.error);
 
       // down here, decrease api usage
       const result = await decreaseApiUsageByUserId(userId);
@@ -279,14 +246,13 @@ class Server {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ storyObj: storyPayload }));
     } catch (error) {
-      console.error('Error generating story:', error);
       res.writeHead(500);
-      res.end(JSON.stringify({ error: 'Error generating story' }));
+      res.end(JSON.stringify({ error: Messages.ErrorCreatingStory }));
     }
   }
 
   // Updates the title and summary
-  async handleUpdateStoryOverall(req, res) 
+  handleUpdateStoryOverall = async (req, res) =>
   {
     const body = await this.getRequestBody(req);
     const { title, summary, storyId } = JSON.parse(body);
@@ -296,16 +262,16 @@ class Server {
 
     if (result.success) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ message: 'Story updated successfully' }));
+      res.end(JSON.stringify({ message: Messages.StoryUpdated }));
     } 
     else
     {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: "An error occurred while updating story" }));
+      res.end(JSON.stringify({ error: Messages.ErrorUpdatingStory }));
     }
   }
 
-  async handleDeleteStory(req, res)
+  handleDeleteStory = async (req, res) =>
   {
     const body = await this.getRequestBody(req);
     const { storyId } = JSON.parse(body);
@@ -317,15 +283,16 @@ class Server {
 
     if (result.success) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ message: 'Story deleted successfully' }));
+      res.end(JSON.stringify({ message: Messages.StoryDeleted }));
     } 
     else {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: "An error occurred while deleting story" }));
+      res.end(JSON.stringify({ error: Messages.ErrorDeletingStory }));
     }
   }
 
-  async handleAdminDashboard(req, res) {
+  handleAdminDashboard = async (req, res) =>
+  {
     try {
       await incrementEndpointCount("GET", `${MappedEndpoints.Admin}/dashboard`);
       const result = await getAll();
@@ -343,11 +310,12 @@ class Server {
     } catch (error) {
       console.error('Admin dashboard error:', error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'An error occurred while fetching users' }));
+      res.end(JSON.stringify({ error: Messages.ErrorFetchingUsers }));
     }
   }
 
-  async handleDeleteUser(req, res) {
+  handleDeleteUser = async (req, res) => 
+  {
       const body = await this.getRequestBody(req);
       const { id } = JSON.parse(body);
 
@@ -356,22 +324,23 @@ class Server {
       await incrementEndpointCount("DELETE", `${MappedEndpoints.Admin}/deleteUser`);
       if (result.success) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ message: 'User deleted successfully' }));
+        res.end(JSON.stringify({ message: Messages.UserDeleted}));
       } 
       else {
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: "An error occurred while deleting user" }));
+        res.end(JSON.stringify({ error: Messages.ErrorDeletingUser }));
       }
   }
 
-  async handleLogOut(req, res) {
-
+  handleLogOut = async (req, res) =>
+  {
     await incrementEndpointCount("POST", `${MappedEndpoints.Auth}/logout`);
     res.setHeader('Set-Cookie', `access_token=; HttpOnly; Secure; SameSite=None; Max-Age=0; Path=/;`);
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ message: 'Logged out successfully' }));
+    res.end(JSON.stringify({ message: Messages.LogoutSuccess }));
   }
-  async handleLogin(req, res) {
+  handleLogin = async (req, res) =>
+  {
     try {
       const body = await this.getRequestBody(req);
       const { email, password } = JSON.parse(body);
@@ -384,20 +353,20 @@ class Server {
         res.writeHead(200, { 
           'Content-Type': 'application/json',
          });
-        res.end(JSON.stringify({ message: "Logged in successfully!" }));
+        res.end(JSON.stringify({ message: Messages.LoginSuccess }));
       } else {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: result.error }));
       }
     } catch (error) {
-      console.error('Login error:', error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Login failed' }));
+      res.end(JSON.stringify({ error: Messages.LoginFailed }));
     }
   }
   
 
-  async handleRegister(req, res) {
+  handleRegister = async (req, res) => 
+  {
     try {
       const body = await this.getRequestBody(req);
       const { username, email, password } = JSON.parse(body);
@@ -405,14 +374,14 @@ class Server {
       await incrementEndpointCount("POST", `${MappedEndpoints.Auth}/register`);
       if (!username || !email || !password) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'All fields are required' }));
+        return res.end(JSON.stringify({ error: Messages.AllFieldsRequired }));
       }
 
       const result = await register(username, email, password);
 
       if (result.success) {
         res.writeHead(201, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ message: 'User registered successfully' }));
+        res.end(JSON.stringify({ message: Messages.UserRegister }));
       } else {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: result.error }));
@@ -420,11 +389,11 @@ class Server {
     } catch (error) {
       console.error('Register error:', error);
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Registration failed' }));
+      res.end(JSON.stringify({ error: Messages.RegisterationError }));
     }
   }
 
-  async generateStory(prompt) {
+  generateStory = async (prompt) => {
     const storyOutput = await this.generator(prompt, {
       max_length: 100,
       num_return_sequences: 1,
@@ -437,8 +406,9 @@ class Server {
     return storyOutput[0].generated_text.trim();
   }
 
-  async generatePrompt(storyContext) {
-    const promptOutput = await this.generator(`(NOTE: Do not include the story in your response please) Continue this story \"${storyContext}\" and then place the new input after Next:`, {
+  generatePrompt = async (storyContext) =>
+  {
+    const promptOutput = await this.generator(`${Messages.GeneratePrompt_Opening}\"${storyContext}\"${Messages.GeneratePrompt_Closing}`, {
       max_length: 200,
       num_return_sequences: 1,
       no_repeat_ngram_size: 2,
@@ -460,7 +430,8 @@ class Server {
     return generatedPrompt.substring(0, 30).replace(/\w+$/, '').trim();
   }
 
-  getRequestBody(req) {
+  getRequestBody = (req) =>
+  {
     return new Promise((resolve, reject) => {
       let body = '';
       req.on('data', (chunk) => {
@@ -471,9 +442,10 @@ class Server {
     });
   }
 
-  start() {
+  start = () => 
+  {
     this.server.listen(this.port, () => {
-      console.log(`Server is listening on port ${this.port}`);
+      console.log(`${Messages.Listening}${this.port}`);
     });
   }
 }

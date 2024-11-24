@@ -1,12 +1,7 @@
 // This file contains the middleware class for authentication.
-const Messages = {
-  // Use double quotes...
-  TokenNotFound: "Token is not found.",
-  TokenInvalid: "Token is invalid.",
-  UserNotAdmin: "User is not an admin.",
-}
 // Get the required modules, JWT decoding
 import { decodeToken } from "../routes/auth.js";
+import { Messages } from "../constants/en.js";
 
 /**
  * Middleware class for authentication
@@ -25,7 +20,8 @@ export class AuthMiddleware {
    * @param {*} res - response
    * @param {*} next - callback function
    */
-  static async ValidateUser(req, res, next) {
+  static ValidateUser = async (req, res, next) => 
+  {
     let token = null;
     try {
       // Get the access token from the cookie
@@ -33,7 +29,7 @@ export class AuthMiddleware {
       token = cookie.includes("access_token") ? cookie.split('=')[1] : null;
     }
     catch (error) {
-      console.error('Token not found:', error);
+      console.error(Messages.TokenNotFound, error);
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, success: false, error: Messages.TokenNotFound }));
       return;
@@ -50,10 +46,7 @@ export class AuthMiddleware {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: false, success: false, error: Messages.TokenInvalid }));
     }
-    
-    
   }
-
 
   /**
    * Navigates to the home page if the user is authenticated.
@@ -63,7 +56,7 @@ export class AuthMiddleware {
    * @param {*} res - response
    * @param {*} next - call back function
    */
-  static async NavigateProperly(req, res, next)
+  static NavigateProperly = async (req, res, next) =>
   {
     // If the cookie is not present, call the next function
     if (req.headers.cookie === null || req.headers.cookie === undefined)
@@ -74,10 +67,10 @@ export class AuthMiddleware {
       const cookie = req.headers.cookie;
       const token = cookie.includes("access_token") ? cookie.split('=')[1] : null;
       // If the token is valid, navigate to the home page
+      // this is handled on Client Side, not here
       const result = await decodeToken(token);
       if (result.success)
-        res.writeHead(302, { Location: '/home' });
-        // window.location.href = '/home';
+        res.writeHead(302);
       // Otherwise, call the next function
       else
         next(req, res);
@@ -93,8 +86,9 @@ export class AuthMiddleware {
    * @param {*} res - response
    * @param {*} next - callback function
    */
-  static async ValidateRole(req, res, next)
+  static ValidateRole = async (req, res, next) =>
   {
+    // Make token variable
     let token = null;
     try {
       // Get the access token from the cookie
@@ -118,8 +112,8 @@ export class AuthMiddleware {
         next(req, res);
       else
       {
-        // If the user is not an admin, redirect to the home page
-        // res.writeHead(302, { Location: '/home' });
+        // If the user is not an admin, redirect to the home page (Client Side)
+        // Return 401 for Server Side
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: false, success: false, error: Messages.UserNotAdmin }));
       }
@@ -130,7 +124,5 @@ export class AuthMiddleware {
         res.writeHead(401, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ ok: false, success: false, error: Messages.TokenInvalid }));
       }
-      
-
   }
 }
