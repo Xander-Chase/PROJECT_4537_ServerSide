@@ -19,16 +19,15 @@ class Server {
 
   async loadModel() {
     try {
-      console.log('Initializing pipeline...');
-      const tokenizer = await AutoTokenizer.from_pretrained('EleutherAI/gpt-neo-1.3B');
-      console.log('Tokenizer loaded successfully:', tokenizer);
-      this.generator = await pipeline('text-generation', 'EleutherAI/gpt-neo-1.3B', { tokenizer });
-      console.log('Pipeline initialized successfully.');
+      console.log('Loading model...');
+      this.generator = await pipeline('text-generation', 'Xenova/gpt2-large-conversational');
+      console.log('Model loaded successfully.');
     } catch (error) {
       console.error('Error loading model:', error);
       process.exit(1);
     }
   }
+  
 
   async handleRequest(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
