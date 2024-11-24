@@ -1,4 +1,4 @@
-export const CORS_YOUR_ORIGIN = "https://termprojecto1.teddyd-website.xyz, http://termprojecto1.teddyd-website.xyz, https://termprojecto.teddyd-website.xyz" // Change this to your localhost origin
+export const CORS_YOUR_ORIGIN = "https://termprojecto.teddyd-website.xyz" // Change this to your localhost origin
 // https://termprojecto.teddyd-website.xyz
 
 export const MappedEndpoints = {
