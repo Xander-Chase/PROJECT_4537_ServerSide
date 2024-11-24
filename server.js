@@ -1,8 +1,9 @@
 import http from 'http';
 import url from 'url';
-import { pipeline } from '@xenova/transformers';
 import connectDB from './db.js'; // MongoDB connection
 import dotenv from 'dotenv'; // Environment variables
+
+import { AutoTokenizer, pipeline } from '@xenova/transformers';
 
 // Constants
 import { CORS_YOUR_ORIGIN, MappedEndpoints } from './constants/development.js';
@@ -50,16 +51,21 @@ class Server {
    */
   async loadModel() {
     try {
-
+      /*
       console.log(`${MESSAGES.logger.info} ${MESSAGES.loadingModel}`);
       this.generator = await pipeline('text-generation', 'Xenova/distilgpt2');
       console.log(`${MESSAGES.logger.info} ${MESSAGES.modelLoaded}`);
+      */
+      console.log('Loading model...');
+      this.generator = await pipeline('text-generation', 'Xenova/gpt2-large-conversational');
+      console.log('Model loaded successfully.');
 
     } catch (error) {
       console.error('Error loading model:', error);
       process.exit(1);
     }
   }
+  
 
   /**
    * Handles incoming requests
