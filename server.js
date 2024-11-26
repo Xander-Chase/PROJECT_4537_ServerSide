@@ -68,7 +68,7 @@ class Server {
     try {
       
       console.log(`${MESSAGES.logger.info} ${MESSAGES.loadingModel}`);
-      this.generator = await pipeline('text-generation', 'Xenova/gpt2-large-conversational');
+      this.generator = await pipeline('text-generation', 'Xenova/distilgpt2');
       console.log(`${MESSAGES.logger.info} ${MESSAGES.modelLoaded}`);
 
     } catch (error) {
