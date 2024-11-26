@@ -1,0 +1,788 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+      "title": "Your API",
+      "version": "1.0.0",
+      "description": "API documentation for your Node.js application."
+    },
+    "servers": [
+      {
+        "url": "http://localhost:8080",
+        "description": "Local server"
+      }
+    ],
+    "paths": {
+      "/api/auth/login": {
+        "post": {
+          "summary": "User login",
+          "description": "Authenticate user and return a token in a cookie.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "email": {
+                      "type": "string",
+                      "example": "user@example.com"
+                    },
+                    "password": {
+                      "type": "string",
+                      "example": "password123"
+                    }
+                  },
+                  "required": ["email", "password"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful login",
+              "headers": {
+                "Set-Cookie": {
+                  "schema": {
+                    "type": "string"
+                  },
+                  "description": "JWT token set in access_token cookie."
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": {
+                        "type": "string",
+                        "example": "Logged in successfully"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Invalid credentials",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "error": {
+                        "type": "string",
+                        "example": "Invalid Credentials. User not found."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/auth/register": {
+        "post": {
+          "summary": "User registration",
+          "description": "Register a new user.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "username": {
+                      "type": "string",
+                      "example": "johndoe"
+                    },
+                    "email": {
+                      "type": "string",
+                      "example": "johndoe@example.com"
+                    },
+                    "password": {
+                      "type": "string",
+                      "example": "password123"
+                    }
+                  },
+                  "required": ["username", "email", "password"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "User registered successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": {
+                        "type": "string",
+                        "example": "User registered successfully"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Registration failed",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "error": {
+                        "type": "string",
+                        "example": "User already exists."
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/auth/logout": {
+        "post": {
+          "summary": "User logout",
+          "description": "Logs out the user by clearing the authentication cookie.",
+          "responses": {
+            "200": {
+              "description": "Logged out successfully",
+              "headers": {
+                "Set-Cookie": {
+                  "schema": {
+                    "type": "string"
+                  },
+                  "description": "Clears the access_token cookie."
+                }
+              },
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "object",
+                    "properties": {
+                      "message": {
+                        "type": "string",
+                        "example": "Logged out successfully"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/user/info": {
+        "get": {
+          "summary": "Get user information",
+          "description": "Retrieves the user's information, including role, API usage, and stories.",
+          "security": [
+            {
+              "cookieAuth": []
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "User information retrieved successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/UserInfoResponse"
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Unauthorized",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ErrorResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/user/getApiUsage": {
+        "get": {
+          "summary": "Get user API usage",
+          "description": "Retrieves the user's API usage information.",
+          "security": [
+            {
+              "cookieAuth": []
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "API usage retrieved successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ApiUsageResponse"
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Unauthorized",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ErrorResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/user/generate": {
+        "post": {
+          "summary": "Generate a new story",
+          "description": "Generates a new story based on the provided prompt.",
+          "security": [
+            {
+              "cookieAuth": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "prompt": {
+                      "type": "string",
+                      "example": "Once upon a time..."
+                    },
+                    "userId": {
+                      "type": "string",
+                      "example": "60b8d6e2f1a4b627d8d6e2f1"
+                    }
+                  },
+                  "required": ["prompt", "userId"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Story generated successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/StoryResponse"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Bad Request",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ErrorResponse"
+                  }
+                }
+              }
+            },
+            "500": {
+              "description": "Internal Server Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ErrorResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/user/generateNext": {
+        "put": {
+          "summary": "Generate the next part of a story",
+          "description": "Generates the next part of an existing story based on the provided prompt.",
+          "security": [
+            {
+              "cookieAuth": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "prompt": {
+                      "type": "string",
+                      "example": "The hero ventured deeper into the forest..."
+                    },
+                    "storyId": {
+                      "type": "string",
+                      "example": "60b8d6e2f1a4b627d8d6e2f1"
+                    },
+                    "paginationIndex": {
+                      "type": "integer",
+                      "example": 1
+                    },
+                    "prevList": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StoryContentObject"
+                      }
+                    },
+                    "chosenIndex": {
+                      "type": "integer",
+                      "example": 0
+                    }
+                  },
+                  "required": ["prompt", "storyId", "paginationIndex", "prevList", "chosenIndex"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Next part of the story generated successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/StoryResponse"
+                  }
+                }
+              }
+            },
+            "500": {
+              "description": "Internal Server Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ErrorResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/user/updateStory": {
+        "put": {
+          "summary": "Update story title and summary",
+          "description": "Updates the title and summary of a story.",
+          "security": [
+            {
+              "cookieAuth": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "example": "My Epic Adventure"
+                    },
+                    "summary": {
+                      "type": "string",
+                      "example": "A thrilling journey through uncharted territories."
+                    },
+                    "storyId": {
+                      "type": "string",
+                      "example": "60b8d6e2f1a4b627d8d6e2f1"
+                    }
+                  },
+                  "required": ["storyId"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Story updated successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SuccessResponse"
+                  }
+                }
+              }
+            },
+            "500": {
+              "description": "Internal Server Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ErrorResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/user/deleteStory": {
+        "delete": {
+          "summary": "Delete a story",
+          "description": "Deletes a story by its ID.",
+          "security": [
+            {
+              "cookieAuth": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "storyId": {
+                      "type": "string",
+                      "example": "60b8d6e2f1a4b627d8d6e2f1"
+                    }
+                  },
+                  "required": ["storyId"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Story deleted successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SuccessResponse"
+                  }
+                }
+              }
+            },
+            "500": {
+              "description": "Internal Server Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ErrorResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/admin/dashboard": {
+        "get": {
+          "summary": "Admin dashboard",
+          "description": "Retrieves data for the admin dashboard. **Requires admin privileges.**",
+          "security": [
+            {
+              "cookieAuth": []
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Admin dashboard data retrieved successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/AdminDashboardResponse"
+                  }
+                }
+              }
+            },
+            "401": {
+              "description": "Unauthorized or Forbidden",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ErrorResponse"
+                  }
+                }
+              }
+            },
+            "500": {
+              "description": "Internal Server Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ErrorResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/admin/deleteUser": {
+        "delete": {
+          "summary": "Delete a user",
+          "description": "Deletes a user by their ID. **Requires admin privileges.**",
+          "security": [
+            {
+              "cookieAuth": []
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "example": "60b8d6e2f1a4b627d8d6e2f1"
+                    }
+                  },
+                  "required": ["id"]
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "User deleted successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SuccessResponse"
+                  }
+                }
+              }
+            },
+            "500": {
+              "description": "Internal Server Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ErrorResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "User": {
+          "type": "object",
+          "properties": {
+            "_id": {
+              "type": "string",
+              "example": "60b8d6e2f1a4b627d8d6e2f1"
+            },
+            "username": {
+              "type": "string",
+              "example": "johndoe"
+            },
+            "email": {
+              "type": "string",
+              "example": "johndoe@example.com"
+            }
+          }
+        },
+        "Role": {
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string",
+              "example": "user"
+            }
+          }
+        },
+        "ApiUsage": {
+          "type": "object",
+          "properties": {
+            "count": {
+              "type": "integer",
+              "example": 20
+            }
+          }
+        },
+        "StoryContentObject": {
+          "type": "object",
+          "properties": {
+            "description": {
+              "type": "string",
+              "example": "The hero ventured into the dark cave."
+            },
+            "prompts": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "example": "He heard a strange noise."
+              }
+            },
+            "chosenPrompt": {
+              "type": "string",
+              "example": "He decided to follow the sound."
+            }
+          }
+        },
+        "Story": {
+          "type": "object",
+          "properties": {
+            "_id": {
+              "type": "string",
+              "example": "60b8d6e2f1a4b627d8d6e2f1"
+            },
+            "userId": {
+              "type": "string",
+              "example": "60b8d6e2f1a4b627d8d6e2f1"
+            },
+            "title": {
+              "type": "string",
+              "example": "My Epic Adventure"
+            },
+            "summary": {
+              "type": "string",
+              "example": "A thrilling journey through uncharted territories."
+            },
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/StoryContentObject"
+              }
+            },
+            "updated": {
+              "type": "string",
+              "format": "date-time",
+              "example": "2023-10-05T14:48:00.000Z"
+            }
+          }
+        },
+        "Endpoint": {
+          "type": "object",
+          "properties": {
+            "method": {
+              "type": "string",
+              "example": "GET"
+            },
+            "endpoint": {
+              "type": "string",
+              "example": "/api/user/info"
+            },
+            "count": {
+              "type": "integer",
+              "example": 15
+            }
+          }
+        },
+        "UserInfoResponse": {
+          "type": "object",
+          "properties": {
+            "user": {
+              "$ref": "#/components/schemas/User"
+            },
+            "role": {
+              "$ref": "#/components/schemas/Role"
+            },
+            "apiUsage": {
+              "$ref": "#/components/schemas/ApiUsage"
+            },
+            "stories": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Story"
+              }
+            }
+          }
+        },
+        "ApiUsageResponse": {
+          "type": "object",
+          "properties": {
+            "apiUsage": {
+              "$ref": "#/components/schemas/ApiUsage"
+            }
+          }
+        },
+        "StoryResponse": {
+          "type": "object",
+          "properties": {
+            "storyObj": {
+              "type": "object",
+              "properties": {
+                "success": {
+                  "type": "boolean",
+                  "example": true
+                },
+                "story": {
+                  "$ref": "#/components/schemas/Story"
+                }
+              }
+            }
+          }
+        },
+        "AdminDashboardResponse": {
+          "type": "object",
+          "properties": {
+            "endpoints": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Endpoint"
+              }
+            },
+            "data": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "user": {
+                    "$ref": "#/components/schemas/User"
+                  },
+                  "role": {
+                    "$ref": "#/components/schemas/Role"
+                  },
+                  "apiUsage": {
+                    "$ref": "#/components/schemas/ApiUsage"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "SuccessResponse": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "example": "Operation successful."
+            }
+          }
+        },
+        "ErrorResponse": {
+          "type": "object",
+          "properties": {
+            "error": {
+              "type": "string",
+              "example": "An error occurred."
+            }
+          }
+        }
+      },
+      "securitySchemes": {
+        "cookieAuth": {
+          "type": "apiKey",
+          "in": "cookie",
+          "name": "access_token"
+        }
+      }
+    }
+  }
+  

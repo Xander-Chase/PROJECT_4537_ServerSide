@@ -3,6 +3,19 @@ import url from 'url';
 import connectDB from './db.js'; // MongoDB connection
 import dotenv from 'dotenv'; // Environment variables
 
+// For Swagger
+import fs from 'fs';
+import path from 'path';
+import swaggerUiDist from 'swagger-ui-dist';
+import { fileURLToPath } from 'url';
+
+// Define __dirname for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Define swaggerUiPath
+const swaggerUiPath = swaggerUiDist.getAbsoluteFSPath();
+
 import { AutoTokenizer, pipeline } from '@xenova/transformers';
 
 // Constants
@@ -84,6 +97,67 @@ class Server {
       // For preflight requests, respond with 204 No Content and include CORS headers
       res.writeHead(204);
       res.end();
+      return;
+    }
+
+    if (parsedUrl.pathname === '/swagger.json') {
+      // Serve the swagger.json file
+      const filePath = path.join(__dirname, 'swagger.json');
+
+      fs.readFile(filePath, (err, data) => {
+        if (err) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ error: 'Swagger file not found' }));
+          return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(data);
+      });
+      return;
+    }
+
+    if (parsedUrl.pathname.startsWith('/docs')) {
+      let filePath = path.join(
+        swaggerUiPath,
+        parsedUrl.pathname.replace('/docs', '') || 'index.html'
+      );
+    
+      // Check if the requested file exists
+      if (!fs.existsSync(filePath)) {
+        filePath = path.join(swaggerUiPath, 'index.html');
+      }
+    
+      // Read and serve the file
+      fs.readFile(filePath, (err, data) => {
+        if (err) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ error: 'File not found' }));
+          return;
+        }  
+
+        // Add this block to handleRequest
+        if (filePath.endsWith('swagger-initializer.js')) {
+          data = data
+            .toString()
+            .replace(
+              'url: "https://petstore.swagger.io/v2/swagger.json",',
+              'url: "/swagger.json",'
+            );
+        }
+
+    
+        const ext = path.extname(filePath);
+        const contentType = {
+          '.html': 'text/html',
+          '.css': 'text/css',
+          '.js': 'application/javascript',
+          '.png': 'image/png',
+        }[ext] || 'text/plain';
+    
+        res.writeHead(200, { 'Content-Type': contentType });
+        res.end(data);
+      });
       return;
     }
 
