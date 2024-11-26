@@ -5,12 +5,6 @@
       "version": "1.0.0",
       "description": "API documentation for your Node.js application."
     },
-    "servers": [
-      {
-        "url": "http://localhost:8080",
-        "description": "Local server"
-      }
-    ],
     "paths": {
       "/api/auth/login": {
         "post": {
