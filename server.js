@@ -84,7 +84,7 @@ class Server {
    * @returns response
    */
   async handleRequest(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', CORS_YOUR_ORIGIN); // Allow CORs on specific origin
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     res.setHeader('Access-Control-Allow-Credentials', "true"); // Allow cookies
     res.setHeader('Access-Control-Allow-Headers', "Content-Type");
@@ -496,8 +496,8 @@ class Server {
       no_repeat_ngram_size: 2,
       do_sample: true,
       top_k: 50,
-      top_p: 0.95,
-      temperature: 1.0,
+      top_p: 0.9,
+      temperature: 0.7,
     });
     return storyOutput[0].generated_text.trim();
   }
@@ -505,13 +505,13 @@ class Server {
   generatePrompt = async (storyContext) =>
   {
     const promptOutput = await this.generator(`${Messages.GeneratePrompt_Opening}\"${storyContext}\"${Messages.GeneratePrompt_Closing}`, {
-      max_length: 200,
+      max_length: 50,
       num_return_sequences: 1,
       no_repeat_ngram_size: 2,
       do_sample: true,
       top_k: 50,
-      top_p: 1.0,
-      temperature: 1.0,
+      top_p: .95,
+      temperature: .7,
     });
 
     let response = promptOutput[0].generated_text;
