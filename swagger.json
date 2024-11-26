@@ -7,8 +7,8 @@
     },
     "servers": [
       {
-        "url": "https://storybox.azurewebsites.net",
-        "description": "API V2"
+        "url": "http://localhost:8080",
+        "description": "Local server"
       }
     ],
     "paths": {
