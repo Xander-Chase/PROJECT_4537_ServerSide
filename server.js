@@ -84,7 +84,7 @@ class Server {
    * @returns response
    */
   async handleRequest(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', CORS_YOUR_ORIGIN); // Allow CORS
 
     res.setHeader('Access-Control-Allow-Credentials', "true"); // Allow cookies
     res.setHeader('Access-Control-Allow-Headers', "Content-Type");
